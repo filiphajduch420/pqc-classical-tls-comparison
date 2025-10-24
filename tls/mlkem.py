@@ -27,7 +27,7 @@ def MLKEM_Decaps(dk: bytes, c: bytes, variant_id: int = 1) -> bytes:
         raise ValueError("Invalid inputs")
     return MLKEM_Decaps_internal(dk, c, params)
 
-# Backward wrappers
+# Backward wrappers\
 def MLKEM768_KeyGen(): return MLKEM_KeyGen(1)
 def MLKEM768_Encaps(ek: bytes): return MLKEM_Encaps(ek, 1)
 def MLKEM768_Decaps(dk: bytes, c: bytes): return MLKEM_Decaps(dk, c, 1)
