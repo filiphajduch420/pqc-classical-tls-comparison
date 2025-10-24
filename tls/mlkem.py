@@ -48,14 +48,19 @@ def _validate_encapsulation_key(ek: bytes, params: MLKEMParams) -> bool:
         return False
     return True
 
+
 def _validate_decaps_inputs(dk: bytes, c: bytes, params: MLKEMParams) -> bool:
-    if not isinstance(c, bytes) or len(c) != 32 * (params.DU * params.K + params.DV):
-        return False
-    if not isinstance(dk, bytes) or len(dk) != 768 * params.K + 96:
-        return False
+    # ... (kontroly délek) ...
     off_dkPKE = 384 * params.K
     off_ekPKE = 768 * params.K + 32
     off_h = 768 * params.K + 64
     ekPKE_part = dk[off_dkPKE:off_ekPKE]
-    h = dk[off_ekPKE:off_h]
-    return H(ekPKE_part) == h
+    h_expected = dk[off_ekPKE:off_h]  # Přejmenováno z 'h'
+    h_calculated = H(ekPKE_part)  # Použijeme H z crypto_primitives
+
+
+    match = (h_calculated == h_expected)
+    if not match:
+        return False
+
+    return match

@@ -9,10 +9,10 @@ import os
 from typing import Optional, Tuple
 
 # Importujeme z našeho podbalíčku 'mldsa_files'
-from mldsa_files.constants import MLDSAParams, get_params_by_id
-from mldsa_files.dsa_internal import ML_DSA_KeyGen_internal, ML_DSA_Sign_internal, ML_DSA_Verify_internal
-from mldsa_files.conversions import IntegerToBytes, BytesToBits
-from mldsa_files.crypto_primitives import PREHASH_FUNCTIONS
+from .mldsa_files.constants import MLDSAParams, get_params_by_id
+from .mldsa_files.dsa_internal import ML_DSA_KeyGen_internal, ML_DSA_Sign_internal, ML_DSA_Verify_internal
+from .mldsa_files.conversions import IntegerToBytes, BytesToBits
+from .mldsa_files.crypto_primitives import PREHASH_FUNCTIONS
 
 # Sentinel hodnota pro ⊥ (error/NULL)
 ERROR_VALUE = None
