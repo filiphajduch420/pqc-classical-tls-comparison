@@ -335,8 +335,7 @@ def ML_DSA_Verify_internal(
 
     # 12: c'_tilde <- H(mu || w1Encode(w1'), lambda/4)
     w1_bytes = w1Encode(w1_prime, params)
-    c_prime_data = mu + w1_bytes
-    c_prime_tilde = H(c_prime_data, params.lam // 4)
+    c_prime_tilde = H(mu + w1_bytes, params.lam // 4)
 
     # 13: return [[ ||z||_inf < gamma1 - beta ]] and [[ c_tilde = c'_tilde ]]
     check_hash = (c_tilde == c_prime_tilde)
@@ -359,6 +358,125 @@ def ML_DSA_Verify_internal(
             break
 
     return check_norm and check_hash
+
+
+def ML_DSA_Verify_debug(
+        pk: bytes,
+        M_prime: List[int],
+        sigma: bytes,
+        params: MLDSAParams
+) -> dict:
+    """
+    Debug/inspect variant of Verify_internal that returns intermediate values:
+    - c_tilde (from signature)
+    - c_prime_tilde (recomputed hash)
+    - c_match (boolean)
+    - z_norm_max (max |z_i,j|)
+    - z_bound (gamma1 - beta)
+    Also includes expected vs actual lengths for pk and sigma.
+    Returns a dict with keys: ok, c_tilde, c_prime_tilde, c_match, z_norm_max, z_bound,
+    pk_len_expected, pk_len_actual, sig_len_expected, sig_len_actual
+    """
+    result = {
+        "ok": False,
+        "c_tilde": None,
+        "c_prime_tilde": None,
+        "c_match": False,
+        "z_norm_max": None,
+        "z_bound": None,
+        "pk_len_expected": None,
+        "pk_len_actual": len(pk),
+        "sig_len_expected": None,
+        "sig_len_actual": len(sigma),
+    }
+
+    # Expected lengths
+    len_q_minus_1_d = (Q - 1).bit_length() - D
+    expected_pk_len = 32 + params.k * (32 * len_q_minus_1_d)
+    result["pk_len_expected"] = expected_pk_len
+    bitlen_g1_minus_1 = max(0, (params.gamma1 - 1).bit_length())
+    len_z_i = 32 * (1 + bitlen_g1_minus_1)
+    expected_sigma_len = (params.lam // 4) + (params.l * len_z_i) + params.omega + params.k
+    result["sig_len_expected"] = expected_sigma_len
+
+    # Decode pk/sig
+    try:
+        (rho, t1) = pkDecode(pk, params)
+        (c_tilde, z, h) = sigDecode(sigma, params)
+    except Exception:
+        return result
+
+    if h is REJECT:
+        return result
+
+    # Expand and compute mu
+    A_hat = ExpandA(rho, params.k, params.l)
+    tr = H(pk, 64)
+    mu_data_bytes = BitsToBytes(BytesToBits(tr) + M_prime)
+    mu = H(mu_data_bytes, 64)
+
+    # Recompute c'~
+    c_poly = SampleInBall(c_tilde, params.tau)
+    ntt_z = [NTT(poly) for poly in z]
+    ntt_c = NTT(c_poly)
+
+    scalar = 1 << D
+    t1_scaled = [[mod(coeff * scalar, Q) for coeff in poly] for poly in t1]
+    ntt_t1_scaled = [NTT(poly) for poly in t1_scaled]
+
+    w_approx_part1 = []
+    for i in range(params.k):
+        sum_poly_ntt = [0] * N
+        for j in range(params.l):
+            product = MultiplyNTT(A_hat[i][j], ntt_z[j])
+            sum_poly_ntt = AddNTT(sum_poly_ntt, product)
+        w_approx_part1.append(sum_poly_ntt)
+
+    w_approx_part2 = [MultiplyNTT(ntt_c, ntt_t1_scaled[i]) for i in range(params.k)]
+
+    w_approx_ntt_vec = []
+    for i in range(params.k):
+        diff_poly = [mod(w_approx_part1[i][j] - w_approx_part2[i][j], Q) for j in range(N)]
+        w_approx_ntt_vec.append(diff_poly)
+
+    w_prime_approx = [NTT_inv(poly) for poly in w_approx_ntt_vec]
+
+    w1_prime = []
+    gamma2 = params.gamma2
+    for i in range(params.k):
+        poly_h = h[i]
+        poly_r = w_prime_approx[i]
+        new_poly = [UseHint(poly_h[j] == 1, poly_r[j], gamma2) for j in range(N)]
+        w1_prime.append(new_poly)
+
+    w1_bytes = w1Encode(w1_prime, params)
+    c_prime_tilde = H(mu + w1_bytes, params.lam // 4)
+
+    # Checks
+    bound = params.gamma1 - params.beta
+    z_norm_max = 0
+    z_ok = True
+    for poly in z:
+        for coeff in poly:
+            ac = abs(coeff)
+            z_norm_max = max(z_norm_max, ac)
+            if ac >= bound:
+                z_ok = False
+                break
+        if not z_ok:
+            break
+
+    c_match = (c_tilde == c_prime_tilde)
+
+    result.update({
+        "ok": z_ok and c_match and (len(pk) == expected_pk_len) and (len(sigma) == expected_sigma_len),
+        "c_tilde": c_tilde,
+        "c_prime_tilde": c_prime_tilde,
+        "c_match": c_match,
+        "z_norm_max": z_norm_max,
+        "z_bound": bound,
+    })
+    return result
 
 
 # --- TESTOVACÍ FUNKCE ---

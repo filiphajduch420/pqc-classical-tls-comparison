@@ -1,12 +1,12 @@
 import os
-from tls.mlkem_files.constants import get_params_by_id, MLKEMParams
-from tls.mlkem_files.kem_internal import (
+from .mlkem_files.constants import get_params_by_id, MLKEMParams
+from .mlkem_files.kem_internal import (
     MLKEM_KeyGen_internal,
     MLKEM_Encaps_internal,
     MLKEM_Decaps_internal,
 )
-from tls.mlkem_files.crypto_primitives import H
-from tls.mlkem_files.utils import ByteDecode, ByteEncode
+from .mlkem_files.crypto_primitives import H
+from .mlkem_files.utils import ByteDecode, ByteEncode
 
 def MLKEM_KeyGen(variant_id: int = 1) -> tuple[bytes, bytes]:
     params = get_params_by_id(variant_id)
@@ -50,7 +50,6 @@ def _validate_encapsulation_key(ek: bytes, params: MLKEMParams) -> bool:
 
 
 def _validate_decaps_inputs(dk: bytes, c: bytes, params: MLKEMParams) -> bool:
-    # ... (kontroly délek) ...
     off_dkPKE = 384 * params.K
     off_ekPKE = 768 * params.K + 32
     off_h = 768 * params.K + 64

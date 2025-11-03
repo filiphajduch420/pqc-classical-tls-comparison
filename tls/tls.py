@@ -1,89 +1,150 @@
+# tls/tls.py
 """
-Simulace zjednodušeného TLS-like handshake pomocí
-ML-KEM (Kyber) pro výměnu klíčů a ML-DSA (Dilithium) pro autentizaci.
+Parametrized TLS-like PQC handshake using
+ML-KEM (Kyber) for key exchange and ML-DSA (Dilithium) for authentication.
 """
 
-import os
-from typing import Optional, Tuple
+from typing import Optional, Dict, Any
 
-# Importujeme relativně v rámci balíčku 'tls'
 from . import mldsa
 from . import mlkem
 from .mldsa_files.constants import get_params_by_id as get_mldsa_params
 
-# --- Konfigurace ---
-MLDSA_VARIANT_ID = 1  # ML-DSA-65 (pro podpis serveru)
-MLKEM_VARIANT_ID = 1  # ML-KEM-768 (pro výměnu klíčů)
+CONTEXT_DSA = b"TLS Handshake Signature Context"
 
-try:
-    mldsa_params = get_mldsa_params(MLDSA_VARIANT_ID)
-except ValueError as e:
-    print(f"Chyba: Nepodařilo se načíst ML-DSA parametry: {e}")
-    exit(1)
+__all__ = [
+    "setup_server_keys",
+    "client_hello",
+    "server_hello_and_key_exchange",
+    "client_verify_and_key_exchange",
+    "server_decapsulate",
+    "run_handshake_simulation",
+]
 
-# --- Simulace ---
-def simulate_pqc_handshake():
-    # --- Setup (probíhá na pozadí, nevypisuje se jako krok handshake) ---
-    server_keypair_dsa = mldsa.ML_DSA_KeyGen(mldsa_params)
-    if server_keypair_dsa is None: return False # Chyba při generování klíčů
-    pkS, skS = server_keypair_dsa
-    # Předpokládáme, že klient zná pkS
 
-    # --- Handshake ---
-
-    # 1. Client Hello
-    print("[Klient -> Server] Client Hello")
-
-    # 2. Server Hello + Key Exchange + Certificate Verify
-    print("[Server -> Klient] Server Hello")
+def setup_server_keys(mldsa_variant_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Step 0: Server generates long-term ML-DSA key pair for given variant.
+    Returns dict with keys or None on error.
+    """
     try:
-        pkE, skE = mlkem.MLKEM_KeyGen(MLKEM_VARIANT_ID)
-        data_to_sign = pkE
-        context_dsa = b"TLS Handshake Signature Context"
-        server_signature = mldsa.ML_DSA_Sign(skS, data_to_sign, context_dsa, mldsa_params)
-        if server_signature is None: return False # Chyba podpisu
-    except Exception:
-        return False # Obecná chyba na straně serveru
-    print("[Server -> Klient] Server Key Exchange (posílá pkE a podpis)")
+        mldsa_params = get_mldsa_params(mldsa_variant_id)
+    except ValueError:
+        return None
 
-    # 3. Client Key Exchange + Certificate Verify
-    print("[Klient] Ověřuji podpis serveru...")
+    keypair = mldsa.ML_DSA_KeyGen(mldsa_params)
+    if keypair is None:
+        return None
+
+    pkS, skS = keypair
+    return {"pkS": pkS, "skS": skS, "mldsa_params": mldsa_params}
+
+
+def client_hello() -> bool:
+    """Step 1: Client starts communication."""
+    return True
+
+
+def server_hello_and_key_exchange(
+    skS: bytes,
+    mlkem_variant_id: int,
+    mldsa_params: Any
+) -> Optional[Dict[str, Any]]:
+    """
+    Step 2: Server responds, generates ephemeral KEM keys and signs them.
+    Returns dict with data for client and server's secret key, or None on error.
+    """
     try:
-        is_signature_valid = mldsa.ML_DSA_Verify(pkS, data_to_sign, server_signature, context_dsa, mldsa_params)
-        if not is_signature_valid:
-            print("[Klient] Chyba: Podpis serveru je neplatný!")
-            return False
-        print("[Klient] Server ověřen.")
+        pkE, skE = mlkem.MLKEM_KeyGen(mlkem_variant_id)
     except Exception:
-         return False # Chyba ověření
+        return None
 
-    print("[Klient] Generuji sdílené tajemství a posílám ciphertext...")
+    data_to_sign = pkE
     try:
-        ss_client, ct = mlkem.MLKEM_Encaps(pkE, MLKEM_VARIANT_ID)
+        signature = mldsa.ML_DSA_Sign(skS, data_to_sign, CONTEXT_DSA, mldsa_params)
+        if signature is None:
+            return None
     except Exception:
-        return False # Chyba zapouzdření
+        return None
 
-    print("[Klient -> Server] Client Key Exchange (posílá ct)")
+    return {
+        "skE": skE,
+        "pkE": pkE,
+        "signature": signature,
+        "data_to_sign": data_to_sign
+    }
 
-    # 4. Server Decapsulation & Finished (Implicitní)
-    print("[Server] Dekapsuluji sdílené tajemství...")
+
+def client_verify_and_key_exchange(
+    pkS: bytes,
+    pkE: bytes,
+    signature: bytes,
+    data_to_verify: bytes,
+    mldsa_params: Any,
+    mlkem_variant_id: int
+) -> Optional[Dict[str, bytes]]:
+    """
+    Step 3: Client verifies server and encapsulates the secret.
+    Returns dict with ciphertext for server and client's shared secret, or None on error.
+    """
     try:
-        ss_server = mlkem.MLKEM_Decaps(skE, ct, MLKEM_VARIANT_ID)
+        ok = mldsa.ML_DSA_Verify(pkS, data_to_verify, signature, CONTEXT_DSA, mldsa_params)
+        if not ok:
+            return None
     except Exception:
-        return False # Chyba dekapsulace
+        return None
 
-    # 5. Ověření shody tajemství (Výsledek handshake)
-    if ss_client == ss_server:
-        print("\n[Status] ÚSPĚCH: Sdílená tajemství se shodují!")
-        return True
-    else:
-        print("\n[Status] CHYBA: Sdílená tajemství se neshodují!")
+    try:
+        ss_client, ct = mlkem.MLKEM_Encaps(pkE, mlkem_variant_id)
+    except Exception:
+        return None
+
+    return {"ss_client": ss_client, "ct": ct}
+
+
+def server_decapsulate(skE: bytes, ct: bytes, mlkem_variant_id: int) -> Optional[Dict[str, bytes]]:
+    """
+    Step 4: Server decapsulates ciphertext and obtains the secret.
+    Returns dict with server's shared secret, or None on error.
+    """
+    try:
+        ss_server = mlkem.MLKEM_Decaps(skE, ct, mlkem_variant_id)
+    except Exception:
+        return None
+    return {"ss_server": ss_server}
+
+
+def run_handshake_simulation(mldsa_variant_id: int, mlkem_variant_id: int) -> bool:
+    """
+    Runs a single PQC handshake for given ML-DSA and ML-KEM variants.
+    Returns True on success, False otherwise.
+    """
+    server_keys = setup_server_keys(mldsa_variant_id)
+    if not server_keys:
+        return False
+    client_known_pkS = server_keys["pkS"]
+    mldsa_params = server_keys["mldsa_params"]
+
+    if not client_hello():
         return False
 
+    server_data = server_hello_and_key_exchange(server_keys["skS"], mlkem_variant_id, mldsa_params)
+    if not server_data:
+        return False
 
-if __name__ == "__main__":
-    success = simulate_pqc_handshake()
-    if success:
-        print("=== Handshake dokončen ===")
-    else:
-        print("=== Handshake selhal ===")
+    client_data = client_verify_and_key_exchange(
+        client_known_pkS,
+        server_data["pkE"],
+        server_data["signature"],
+        server_data["data_to_sign"],
+        mldsa_params,
+        mlkem_variant_id
+    )
+    if not client_data:
+        return False
+
+    server_final = server_decapsulate(server_data["skE"], client_data["ct"], mlkem_variant_id)
+    if not server_final:
+        return False
+
+    return client_data["ss_client"] == server_final["ss_server"]

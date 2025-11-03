@@ -305,6 +305,33 @@ def HashML_DSA_Verify(
         traceback.print_exc()
         return False
 
+from .mldsa_files.dsa_internal import ML_DSA_Verify_debug as _ML_DSA_Verify_debug
+
+def ML_DSA_Verify_Introspect(
+        pk: bytes,
+        M: bytes,
+        sigma: bytes,
+        ctx: bytes,
+        params: MLDSAParams
+) -> dict:
+    """
+    Public wrapper that mirrors ML_DSA_Verify, but returns debug info from verification:
+    includes c_tilde, c'_tilde, match flag, and z-norm bound info.
+    """
+    if len(ctx) > 255:
+        return {"ok": False, "error": "ctx too long"}
+    try:
+        prefix_bytes = IntegerToBytes(0, 1) + IntegerToBytes(len(ctx), 1) + ctx
+        prefix_bits = BytesToBits(prefix_bytes)
+        message_bits = BytesToBits(M)
+        M_prime = prefix_bits + message_bits
+    except Exception as e:
+        return {"ok": False, "error": f"prep failed: {e}"}
+
+    try:
+        return _ML_DSA_Verify_debug(pk, M_prime, sigma, params)
+    except Exception as e:
+        return {"ok": False, "error": f"verify_debug failed: {e}"}
 
 
 # --- Testovací Blok ---
