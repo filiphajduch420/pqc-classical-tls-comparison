@@ -1,5 +1,3 @@
-# Cryptographic primitives for ML-KEM768
-
 from hashlib import sha3_256, shake_256, sha3_512
 
 

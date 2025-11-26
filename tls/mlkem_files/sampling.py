@@ -1,5 +1,3 @@
-# Sampling algorithms for ML-KEM768
-
 from tls.mlkem_files.constants import N, Q
 from tls.mlkem_files.utils import BytesToBits
 from hashlib import shake_128

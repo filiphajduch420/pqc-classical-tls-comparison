@@ -1,27 +1,27 @@
 from dataclasses import dataclass
 
-# Shared constants for ML-DSA (FIPS 204 §6.1)
+# Sdílené konstanty pro ML-DSA (FIPS 204 §6.1)
 N = 256
 Q = 8380417
 ZETA = 1753
-D = 13     # number of dropped bits from t
+D = 13     # počet bitů zahozených z t
 
 @dataclass(frozen=True)
 class MLDSAParams:
     id: int
     name: str
-    k: int          # matrix A rows
-    l: int          # matrix A columns
-    eta: int        # private key range
-    tau: int        # number of ±1 in c
-    lam: int        # collision strength λ
-    gamma1: int     # coefficient range of y
-    gamma2: int     # low-order rounding range
-    beta: int       # τ·η
-    omega: int      # max # of 1’s in hint h
-    category: int   # claimed security category
+    k: int          # řádky matice A
+    l: int          # sloupce matice A
+    eta: int        # rozsah koeficientů tajného klíče
+    tau: int        # počet ±1 v c
+    lam: int        # bezpečnostní parametr lambda (collision strength)
+    gamma1: int     # rozsah koeficientů y
+    gamma2: int     # rozsah pro low-order rounding
+    beta: int       # tau * eta
+    omega: int      # max. počet 1 v nápovědě h
+    category: int   # deklarovaná bezpečnostní kategorie (NIST)
 
-# Parameter sets from Table 1 (FIPS 204)
+# Sady parametrů z Tabulky 1 (FIPS 204)
 PARAMS_BY_ID = [
     MLDSAParams(
         0, "ML-DSA-44",
@@ -47,12 +47,12 @@ PARAMS_BY_ID = [
 ]
 
 def get_params_by_id(variant_id: int) -> MLDSAParams:
-    """Return ML-DSA parameter set by index (0, 1, 2)."""
+    """Vrátí sadu parametrů ML-DSA podle indexu (0, 1, 2)."""
     if not isinstance(variant_id, int):
-        raise ValueError("variant_id must be int 0, 1 or 2")
+        raise ValueError("variant_id musí být int 0, 1 nebo 2")
     if 0 <= variant_id < len(PARAMS_BY_ID):
         return PARAMS_BY_ID[variant_id]
-    raise ValueError("Unsupported variant_id (use 0, 1 or 2)")
+    raise ValueError("Nepodporované variant_id (použijte 0, 1 nebo 2)")
 
 ZETAS = [
     0, 4808194, 3765607, 3761513, 5178923, 5496691, 5234739, 5178987,

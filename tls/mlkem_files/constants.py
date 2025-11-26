@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-# Shared constants (identical across variants)
+# Sdílené konstanty (shodné pro všechny varianty)
 N = 256
 Q = 3329
-N_INV = 3303  # keep original name if used elsewhere (or alias N_inv)
+N_INV = 3303  # ponecháme původní název, pokud se používá jinde (nebo alias N_inv)
 N_inv = N_INV
 
 def bitrev7(x: int) -> int:
@@ -41,7 +41,7 @@ PARAMS_BY_ID = [
 
 def get_params_by_id(variant_id: int) -> MLKEMParams:
     if not isinstance(variant_id, int):
-        raise ValueError("variant_id must be int 0,1,2")
+        raise ValueError("variant_id musí být int 0,1,2")
     if 0 <= variant_id < len(PARAMS_BY_ID):
         return PARAMS_BY_ID[variant_id]
-    raise ValueError("Unsupported variant_id (use 0,1,2)")
+    raise ValueError("Nepodporované variant_id (použijte 0, 1 nebo 2)")

@@ -1,5 +1,3 @@
-# Conversion and Compression functions for ML-KEM768
-
 from tls.mlkem_files.constants import N, Q
 
 

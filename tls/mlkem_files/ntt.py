@@ -1,5 +1,3 @@
-# The Number-Theoretic Transform pro ML-KEM768
-
 from tls.mlkem_files.constants import ZETAS_BITREV, GAMMAS, N, Q, N_inv
 
 

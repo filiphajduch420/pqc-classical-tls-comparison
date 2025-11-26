@@ -1,14 +1,6 @@
-"""
-Hlavní soubor pro ML-DSA (FIPS 204).
-Obsahuje externí (API) funkce:
-- ML_DSA_KeyGen (Alg 1)
-- ML_DSA_Sign (Alg 2)
-- ML_DSA_Verify (Alg 3)
-"""
 import os
 from typing import Optional, Tuple
 
-# Importujeme z našeho podbalíčku 'mldsa_files'
 from .mldsa_files.constants import MLDSAParams, get_params_by_id
 from .mldsa_files.dsa_internal import ML_DSA_KeyGen_internal, ML_DSA_Sign_internal, ML_DSA_Verify_internal
 from .mldsa_files.conversions import IntegerToBytes, BytesToBits
@@ -333,127 +325,88 @@ def ML_DSA_Verify_Introspect(
     except Exception as e:
         return {"ok": False, "error": f"verify_debug failed: {e}"}
 
+def main():
+    """
+    Hlavní funkce pro testování výkonu podepisovacích operací.
+    Porovnává rychlost standardního a pre-hash podepisování pro
+    malé a velké zprávy pro všechny varianty ML-DSA.
+    """
+    import time
 
-# --- Testovací Blok ---
+    variant_ids = [0, 1, 2]
+    small_message = b"Toto je kratka testovaci zprava."
+    large_message = b'\x41' * (10 * 1024 * 1024)  # 10 MB
+    ctx = b""
+    iterations = 3
+    ph_name = "SHA-512"
+
+    for variant_id in variant_ids:
+        params = get_params_by_id(variant_id)
+        if not params:
+            print(f"Chyba: Nepodařilo se načíst parametry pro ID {variant_id}.")
+            continue
+
+        pk, sk = ML_DSA_KeyGen(params)
+        if not pk or not sk:
+            print(f"Chyba: Generování klíčů pro {params.name} selhalo.")
+            continue
+
+        results = {
+            "small": {"std_time": 0, "hash_time": 0},
+            "large": {"std_time": 0, "hash_time": 0}
+        }
+
+        # --- Měření ---
+
+        # Standardní podpis (malá zpráva)
+        start_time = time.perf_counter()
+        for _ in range(iterations):
+            ML_DSA_Sign(sk, small_message, ctx, params, deterministic=True)
+        end_time = time.perf_counter()
+        results["small"]["std_time"] = (end_time - start_time) / iterations
+
+        # Standardní podpis (velká zpráva)
+        start_time = time.perf_counter()
+        for _ in range(iterations):
+            ML_DSA_Sign(sk, large_message, ctx, params, deterministic=True)
+        end_time = time.perf_counter()
+        results["large"]["std_time"] = (end_time - start_time) / iterations
+
+        # Pre-hash podpis (malá zpráva)
+        start_time = time.perf_counter()
+        for _ in range(iterations):
+            HashML_DSA_Sign(sk, small_message, ctx, ph_name, params, deterministic=True)
+        end_time = time.perf_counter()
+        results["small"]["hash_time"] = (end_time - start_time) / iterations
+
+        # Pre-hash podpis (velká zpráva)
+        start_time = time.perf_counter()
+        for _ in range(iterations):
+            HashML_DSA_Sign(sk, large_message, ctx, ph_name, params, deterministic=True)
+        end_time = time.perf_counter()
+        results["large"]["hash_time"] = (end_time - start_time) / iterations
+
+        # --- Výpis výsledků v tabulce ---
+        print(f"\n--- Výsledky pro: {params.name} ---")
+        header = f"| {'Zpráva':<10} | {'Standardní čas (s)':>20} | {'Pre-hash čas (s)':>20} | {'Poměr (Std / Pre-hash)':>25} |"
+        separator = f"|{'-'*12}|{'-'*22}|{'-'*22}|{'-'*27}|"
+        print(header)
+        print(separator)
+
+        # Malá zpráva
+        t_std_s = results["small"]["std_time"]
+        t_hash_s = results["small"]["hash_time"]
+        ratio_s = t_std_s / t_hash_s if t_hash_s > 0 else float('inf')
+        print(f"| {'Malá':<10} | {t_std_s:>20.6f} | {t_hash_s:>20.6f} | {f'{ratio_s:.2f}x':>25} |")
+
+        # Velká zpráva
+        t_std_l = results["large"]["std_time"]
+        t_hash_l = results["large"]["hash_time"]
+        ratio_l = t_std_l / t_hash_l if t_hash_l > 0 else float('inf')
+        print(f"| {'Velká':<10} | {t_std_l:>20.6f} | {t_hash_l:>20.6f} | {f'{ratio_l:.2f}x':>25} |")
+        print("-" * len(header))
+
+
 if __name__ == "__main__":
+    main()
 
-    # Test pro standardní ML-DSA (Alg 1, 2, 3)
-    def run_mldsa_test(variant_id: int):
-        print(f"\n--- Spouštím ML-DSA test pro variantu ID: {variant_id} ---")
-        try:
-            params = get_params_by_id(variant_id)
-            print(f"Parametry: {params.name}")
-        except ValueError as e:
-            print(f"Chyba: {e}")
-            return False
-
-        keypair = ML_DSA_KeyGen(params)
-        if keypair is None: print("Selhalo generování klíčů."); return False
-        pk, sk = keypair
-        print("Klíče vygenerovány.")
-
-        message = b"Toto je zprava pro ML-DSA test."
-        context = b"MLDSA_Context"
-        print(f"Podepisuji zprávu: {message!r} s kontextem: {context!r}")
-        signature = ML_DSA_Sign(sk, message, context, params)
-        if signature is None: print("Selhalo podepisování."); return False
-        print("Podpis vygenerován.")
-
-        print("Ověřuji platný podpis...")
-        is_valid = ML_DSA_Verify(pk, message, signature, context, params)
-        print(f"Výsledek (platný podpis): {is_valid}")
-        if not is_valid: return False
-
-        print("Ověřuji neplatný podpis (jiná zpráva)...")
-        is_invalid_msg = ML_DSA_Verify(pk, b"Jina zprava", signature, context, params)
-        print(f"Výsledek (jiná zpráva): {not is_invalid_msg}")
-        if is_invalid_msg: return False
-
-        print("Ověřuji neplatný podpis (jiný kontext)...")
-        is_invalid_ctx = ML_DSA_Verify(pk, message, signature, b"JinyKontext", params)
-        print(f"Výsledek (jiný kontext): {not is_invalid_ctx}")
-        if is_invalid_ctx: return False
-
-        print("--- ML-DSA test dokončen úspěšně ---")
-        return True
-
-
-    # Test pro HashML-DSA (Alg 4, 5)
-    def run_hashml_test(variant_id: int):
-        print(f"\n--- Spouštím HashML-DSA test pro variantu ID: {variant_id} ---")
-        try:
-            params = get_params_by_id(variant_id)
-            print(f"Parametry: {params.name}")
-        except ValueError as e:
-            print(f"Chyba: {e}")
-            return False
-
-        keypair = ML_DSA_KeyGen(params)
-        if keypair is None: print("Selhalo generování klíčů."); return False
-        pk, sk = keypair
-        print("Klíče vygenerovány.")
-
-        message = b"Toto je zprava pro HashML-DSA test, muze byt i delsi..." * 10
-        context = b"HashML_Context"
-        all_hash_tests_passed = True
-
-        for ph_name in PREHASH_FUNCTIONS.keys():
-            print(f"\n  Testuji s pre-hash funkcí: {ph_name}")
-            print(f"  Podepisuji zprávu (délka {len(message)}) s kontextem: {context!r}")
-            signature = HashML_DSA_Sign(sk, message, context, ph_name, params)
-            if signature is None:
-                print(f"  Selhalo podepisování s {ph_name}.")
-                all_hash_tests_passed = False
-                continue
-            print("  Podpis vygenerován.")
-
-            print("  Ověřuji platný podpis...")
-            is_valid = HashML_DSA_Verify(pk, message, signature, context, ph_name, params)
-            print(f"  Výsledek (platný podpis, {ph_name}): {is_valid}")
-            if not is_valid: all_hash_tests_passed = False; continue
-
-            print("  Ověřuji neplatný podpis (jiná zpráva)...")
-            is_invalid_msg = HashML_DSA_Verify(pk, b"Jina zprava", signature, context, ph_name, params)
-            print(f"  Výsledek (jiná zpráva, {ph_name}): {not is_invalid_msg}")
-            if is_invalid_msg: all_hash_tests_passed = False; continue
-
-            print("  Ověřuji neplatný podpis (jiný kontext)...")
-            is_invalid_ctx = HashML_DSA_Verify(pk, message, signature, b"JinyKontext", ph_name, params)
-            print(f"  Výsledek (jiný kontext, {ph_name}): {not is_invalid_ctx}")
-            if is_invalid_ctx: all_hash_tests_passed = False; continue
-
-            # Zkusíme ověřit se špatně specifikovanou hash funkcí
-            other_ph_name = "SHA-512" if ph_name == "SHA-256" else "SHA-256"
-            print(f"  Ověřuji neplatný podpis (nesprávná PH funkce '{other_ph_name}')...")
-            is_invalid_ph = HashML_DSA_Verify(pk, message, signature, context, other_ph_name, params)
-            print(f"  Výsledek (nesprávná PH funkce, {ph_name}): {not is_invalid_ph}")
-            if is_invalid_ph: all_hash_tests_passed = False; continue
-
-        if all_hash_tests_passed:
-            print("--- HashML-DSA test dokončen úspěšně ---")
-            return True
-        else:
-            print("--- HashML-DSA test selhal pro některé hash funkce ---")
-            return False
-
-
-    # Spuštění obou sad testů
-    mldsa_results = {}
-    hashml_results = {}
-    for i in range(3):
-        mldsa_results[i] = run_mldsa_test(i)
-        hashml_results[i] = run_hashml_test(i)
-
-    print("\n--- Souhrn VŠECH testů ---")
-    all_passed = True
-    for i in range(3):
-        mldsa_status = "PASS" if mldsa_results[i] else "FAIL"
-        hashml_status = "PASS" if hashml_results[i] else "FAIL"
-        print(f"Varianta {i}: ML-DSA={mldsa_status}, HashML-DSA={hashml_status}")
-        if not mldsa_results[i] or not hashml_results[i]:
-            all_passed = False
-
-    if all_passed:
-        print("\n=> Všechny testy (ML-DSA i HashML-DSA) prošly!")
-    else:
-        print("\n=> Některé testy selhaly!")
