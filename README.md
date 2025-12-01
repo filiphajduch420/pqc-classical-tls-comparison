@@ -24,15 +24,15 @@ Výsledky ukazují, že C implementace je v průměru **400x až 600x rychlejš�
 
 | Varianta | Operace | Python [ms] | OQS (C) [ms] | Zrychlení (x) |
 | :--- | :--- | :--- | :--- | :--- |
-| **ML-KEM-512** | KeyGen | 4.319 | 0.0172 | **251.7x** |
-| | Encaps | 6.336 | 0.0108 | **585.6x** |
-| | Decaps | 7.286 | 0.0117 | **621.3x** |
-| **ML-KEM-768** | KeyGen | 6.432 | 0.0158 | **406.1x** |
-| | Encaps | 9.523 | 0.0159 | **597.5x** |
-| | Decaps | 11.547 | 0.0174 | **663.8x** |
-| **ML-KEM-1024** | KeyGen | 9.521 | 0.0222 | **429.4x** |
-| | Encaps | 13.533 | 0.0230 | **587.6x** |
-| | Decaps | 15.156 | 0.0261 | **580.3x** |
+| **ML-KEM-512** | KeyGen | 3.930 | 0.0166 | **237.0x** |
+| | Encaps | 6.033 | 0.0105 | **577.0x** |
+| | Decaps | 6.891 | 0.0113 | **607.6x** |
+| **ML-KEM-768** | KeyGen | 6.220 | 0.0152 | **408.4x** |
+| | Encaps | 9.261 | 0.0152 | **607.3x** |
+| | Decaps | 10.370 | 0.0170 | **609.6x** |
+| **ML-KEM-1024** | KeyGen | 9.216 | 0.0215 | **428.1x** |
+| | Encaps | 13.263 | 0.0223 | **595.5x** |
+| | Decaps | 14.761 | 0.0251 | **588.0x** |
 
 #### Grafy operací ML-KEM
 | Generování klíčů | Zapouzdření (Encaps) | Rozbalení (Decaps) |
@@ -41,19 +41,19 @@ Výsledky ukazují, že C implementace je v průměru **400x až 600x rychlejš�
 
 ### ML-DSA (Digital Signature)
 
-U digitálních podpisů je moje implementace přibližně **200x až 300x pomalejší** než OQS. Operace `Sign` je výpočetně nejnáročnější.
+U digitálních podpisů je moje implementace přibližně **200x až 230x pomalejší** než OQS. Operace `Sign` je výpočetně nejnáročnější.
 
 | Varianta | Operace | Python [ms] | OQS (C) [ms] | Zrychlení (x) |
 | :--- | :--- | :--- | :--- | :--- |
-| **ML-DSA-44** | KeyGen | 11.778 | 0.0501 | **235.1x** |
-| | Sign | 79.770 | 0.2147 | **371.5x** |
-| | Verify | 12.108 | 0.0541 | **223.7x** |
-| **ML-DSA-65** | KeyGen | 19.833 | 0.0943 | **210.4x** |
-| | Sign | 100.088 | 0.3530 | **283.5x** |
-| | Verify | 18.765 | 0.0850 | **220.8x** |
-| **ML-DSA-87** | KeyGen | 28.809 | 0.1329 | **216.7x** |
-| | Sign | 127.390 | 0.4155 | **306.6x** |
-| | Verify | 29.077 | 0.1383 | **210.3x** |
+| **ML-DSA-44** | KeyGen | 11.445 | 0.0494 | **231.5x** |
+| | Sign | 45.241 | 0.2066 | **219.0x** |
+| | Verify | 11.983 | 0.0530 | **226.2x** |
+| **ML-DSA-65** | KeyGen | 19.269 | 0.0955 | **201.7x** |
+| | Sign | 80.748 | 0.3545 | **227.8x** |
+| | Verify | 18.404 | 0.0860 | **214.0x** |
+| **ML-DSA-87** | KeyGen | 27.970 | 0.1338 | **209.0x** |
+| | Sign | 101.518 | 0.4379 | **231.8x** |
+| | Verify | 28.634 | 0.1388 | **206.3x** |
 
 #### Grafy operací ML-DSA
 | Generování klíčů | Podpis (Sign) | Ověření (Verify) |
@@ -64,73 +64,57 @@ U digitálních podpisů je moje implementace přibližně **200x až 300x pomal
 
 ## 🚀 Část 2: Simulace TLS Handshake
 
-Tato část simuluje zjednodušený průběh TLS 1.3 handshake (výměna klíčů + autentizace serveru) a měří celkový čas a paměťovou náročnost.
+Tato část simuluje zjednodušený průběh TLS 1.3 handshake (výměna klíčů + autentizace serveru) a měří celkový čas a paměťovou náročnost pro jednotlivé kroky protokolu.
 
 ### 1. Moje implementace (Pure Python)
 Zde se ukazuje daň za použití čistého Pythonu pro komplexní matematické operace nad mřížkami. Handshake trvá v řádu sekund.
 
 | Varianta | Průměrný čas [ms] | Paměť [KiB] |
 | :--- | :--- | :--- |
-| **ML-DSA-44 + ML-KEM-512** | 954.79 | 1343.04 |
-| **ML-DSA-65 + ML-KEM-768** | 1272.11 | 1958.20 |
-| **ML-DSA-87 + ML-KEM-1024** | 1874.42 | 2787.23 |
+| **ML-DSA-44 + ML-KEM-512** | 854.18 | 1342.77 |
+| **ML-DSA-65 + ML-KEM-768** | 1323.68 | 1958.14 |
+| **ML-DSA-87 + ML-KEM-1024** | 1635.46 | 2787.18 |
 
-![Python Handshake](graphs/pqc_python_time.png)
+
+| Grafy PQC Python |
+| :---: |
+| ![Python Time](graphs/tls_python_time.png) |
+| ![Python Memory](graphs/tls_python_memory.png) |
 
 ### 2. Open Quantum Safe (OQS - C Library)
 Výkonnost handshake při použití optimalizované knihovny `liboqs` ukazuje, že **PQC je připraveno pro praxi**. Časy jsou pod 1 milisekundu.
 
 | Varianta | Průměrný čas [ms] | Paměť [KiB] |
 | :--- | :--- | :--- |
-| **OQS L2 (512/44)** | 0.483 | 12.01 |
-| **OQS L3 (768/65)** | 0.741 | 16.10 |
-| **OQS L5 (1024/87)** | 0.859 | 21.64 |
+| **OQS L2 (512/44)** | 0.476 | 11.91 |
+| **OQS L3 (768/65)** | 0.721 | 16.02 |
+| **OQS L5 (1024/87)** | 0.905 | 21.59 |
 
-![OQS Handshake](graphs/pqc_oqs_c_time.png)
+#### Detailní rozpad časů (OQS implementace)
+
+
+
+| Grafy PQC OQS (C) |
+| :---: |
+| ![OQS Time](graphs/tls_oqs_time.png) |
+| ![OQS Memory](graphs/tls_oqs_memory.png) |
 
 ### 3. Klasická kryptografie (Reference)
 Srovnání s dnešními standardy (ECDH X25519 + ECDSA/Ed25519). Zajímavým zjištěním je, že **optimalizované PQC (OQS) dosahuje srovnatelných nebo lepších výsledků** než klasické eliptické křivky, zejména u vyšších stupňů bezpečnosti (ECDSA-P384).
 
 | Varianta | Průměrný čas [ms] | Paměť [KiB] |
 | :--- | :--- | :--- |
-| **ECDSA-P256 + X25519** | 0.801 | 3.29 |
-| **ECDSA-P384 + X25519** | 3.443 | 0.76 |
-| **Ed25519 + X25519** | 0.930 | 0.50 |
+| **ECDSA-P256 + X25519** | 0.715 | 0.96 |
+| **ECDSA-P384 + X25519** | 3.422 | 0.75 |
+| **Ed25519 + X25519** | 0.917 | 0.50 |
 
-![Classic Handshake](graphs/classical_c_time.png)
+
+
+| Grafy Klasická kryptografie (C) |
+| :---: |
+| ![Classic Time](graphs/tls_classic_time.png) |
+| ![Classic Memory](graphs/tls_classic_memory.png) |
 
 ---
 
-## 🛠️ Spuštění projektu
-
-Benchmarky byly prováděny na systému macOS/Linux. Pro reprodukci výsledků:
-
-1.  **Vytvoření virtuálního prostředí:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-2.  **Instalace závislostí:**
-    ```bash
-    pip install matplotlib numpy oqs cryptography
-    ```
-
-3.  **Spuštění testů:**
-    * Spustí všechny testy postupně:
-      ```bash
-      python main.py
-      ```
-    * Nebo jednotlivě:
-      ```bash
-      python -m test.test_my_tls      # Python implementace
-      python -m test.test_oqs_tls     # OQS implementace
-      python -m test.test_classic_tls # Klasická krypto
-      python -m test.test_kem         # Benchmark KEM primitiv
-      python -m test.test_dsa         # Benchmark DSA primitiv
-      ```
-
-## 👨‍💻 Autor
-
-**Filip Hajduch**
-Semestrální projekt AP7AK
+Filip Hajduch

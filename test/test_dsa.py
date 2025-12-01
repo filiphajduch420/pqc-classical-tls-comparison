@@ -11,7 +11,7 @@ from tls import mldsa
 from tls.mldsa_files.constants import get_params_by_id
 
 # Nastavení počtu opakování
-ROUNDS_PYTHON = 5  # DSA v Pythonu je výpočetně velmi náročné
+ROUNDS_PYTHON = 100 # DSA v Pythonu je výpočetně velmi náročné
 ROUNDS_OQS = 1000  # C je rychlé
 
 # Definice variant k testování
