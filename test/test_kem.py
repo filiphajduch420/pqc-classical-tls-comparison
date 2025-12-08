@@ -11,7 +11,7 @@ from tls import mlkem
 from tls.mlkem_files.constants import get_params_by_id
 
 # Nastavení počtu opakování
-ROUNDS_PYTHON = 10  # Python je pomalý
+ROUNDS_PYTHON = 100  # Python je pomalý
 ROUNDS_OQS = 1000  # C je rychlé, potřebujeme více vzorků pro přesnost
 
 # Definice variant k testování

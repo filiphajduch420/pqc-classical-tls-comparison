@@ -117,4 +117,22 @@ Srovnání s dnešními standardy (ECDH X25519 + ECDSA/Ed25519). Zajímavým zji
 
 ---
 
+## 🛠️ Instalace a Prerekvizity
+
+Tento projekt vyžaduje **Python 3.10+** a několik externích knihoven.
+
+### 1. Python balíčky
+Všechny potřebné Python knihovny nainstalujete jedním příkazem:
+
+```bash
+pip install pycryptodome cryptography matplotlib numpy
+```
+
+### 2. Open Quantum Safe 
+Aby fungoval Python balíček liboqs a PQC algoritmy, musíte mít v systému zkompilovanou sdílenou C knihovnu liboqs. Bez ní skončí import chybou.
+
+👉 [Oficiální návod liboqs](https://github.com/open-quantum-safe/liboqs-python)
+
+---
+
 Filip Hajduch
